@@ -19,6 +19,9 @@ public static class DependencyInjectionHelper
             services.AddSingleton<IAudioPlayerService, WindowsAudioPlayer>();
         }
 
+        services.AddSingleton<ISettingsService, SettingsService>();
+
+
         // Janelas
         services.AddSingleton<MainWindow>();
         return services;

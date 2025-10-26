@@ -6,6 +6,7 @@ public class WindowsAudioPlayer : IAudioPlayerService
     private WaveOutEvent? outputDevice;
     private AudioFileReader? audioFile;
     public event Action? PlaybackStoped;
+    public bool _stoping;
 
     public void PlayMusic(string file)
     {
@@ -20,7 +21,7 @@ public class WindowsAudioPlayer : IAudioPlayerService
             audioFile = new AudioFileReader(file);
             outputDevice.Init(audioFile);
         }
-
+        
         outputDevice.Play();
     }
 
@@ -34,6 +35,8 @@ public class WindowsAudioPlayer : IAudioPlayerService
 
     public void StopMusic()
     {
+        _stoping = true;
+
         outputDevice?.Dispose();
         outputDevice = null;
         audioFile?.Dispose();
@@ -44,6 +47,11 @@ public class WindowsAudioPlayer : IAudioPlayerService
     
     private void OnPlaybackStopped(object? sender, StoppedEventArgs args)
     {
-        StopMusic();
+        if (!_stoping)
+        {
+            StopMusic();
+        }
+        
+        _stoping = false;
     }
 }

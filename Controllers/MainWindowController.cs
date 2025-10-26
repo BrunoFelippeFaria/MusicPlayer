@@ -9,18 +9,25 @@ namespace MusicPlayer.Controllers;
 public class MainWindowController : IMainWindowController
 {
     private readonly IAudioPlayerService _audioPlayer;
+    private readonly ISettingsService _settings;
+
     private string[] SupportedAudioFormats = { ".mp3", ".mp4" };
     private string? SelectedMusicFile { get; set; }
+    private string? CurrentSong { get; set; }
     private bool IsPlaying { get; set; } = false;
     public event System.Action? PlaybackStoped;
     private string DefaultImage { get; set; }
+    private bool stopClicked;
 
-    public MainWindowController(IAudioPlayerService audioPlayer)
+    public MainWindowController(IAudioPlayerService audioPlayer, ISettingsService settings)
     {
         _audioPlayer = audioPlayer;
         _audioPlayer.PlaybackStoped += OnMusicStop;
 
+        _settings = settings;
+
         DefaultImage = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ui", "Images", "music-note-icon.png");
+        stopClicked = false;
     }
 
     public void CloseWindow(object obj, DeleteEventArgs args)
@@ -82,25 +89,26 @@ public class MainWindowController : IMainWindowController
 
     public void OnPlayClicked(object? obj, EventArgs args)
     {
-        if (string.IsNullOrEmpty(SelectedMusicFile) || !System.IO.File.Exists(SelectedMusicFile)) return;
+        PlayMusic(SelectedMusicFile);
+    }
 
-        if (obj == null) return;
-
-        Button button = (obj as Button)!;
+    private void PlayMusic(string? music)
+    {
+        if (string.IsNullOrEmpty(music) || !System.IO.File.Exists(music)) return;
 
         if (!IsPlaying)
         {
             IsPlaying = true;
-            _audioPlayer.PlayMusic(SelectedMusicFile);
-            button.Label = "Pause";
+            _audioPlayer.PlayMusic(music);
         }
 
         else
         {
             IsPlaying = false;
             _audioPlayer.PauseMusic();
-            button.Label = "Play";
         }
+
+        CurrentSong = SelectedMusicFile;
     }
 
     public void UpdateImage(Image image)
@@ -118,6 +126,7 @@ public class MainWindowController : IMainWindowController
                 var loader = new PixbufLoader();
                 loader.Write(bin);
                 loader.Close();
+                
                 Pixbuf pixbuf = loader.Pixbuf;
 
                 image.Pixbuf = pixbuf;
@@ -137,12 +146,22 @@ public class MainWindowController : IMainWindowController
 
     public void OnStopClicked(object? obj, EventArgs args)
     {
+        stopClicked = true;
         _audioPlayer.StopMusic();
     }
 
     private void OnMusicStop()
-    {
+    {        
         IsPlaying = false;
+
+        if (!stopClicked && _settings.SessionSettings.Repeat)
+        {
+            PlayMusic(CurrentSong);
+            IsPlaying = true;
+        }
+
+        stopClicked = false;
+
         PlaybackStoped?.Invoke();
     }
 }

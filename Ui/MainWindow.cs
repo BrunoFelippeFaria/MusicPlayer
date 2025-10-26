@@ -1,3 +1,4 @@
+using System.Collections;
 using Gtk;
 using MusicPlayer.Helpers;
 using MusicPlayer.Interfaces;
@@ -9,8 +10,17 @@ public class MainWindow : Window
 {
     public Image MusicImage { get; set; }
 
-    public MainWindow(IMainWindowController controller) : base("MusicPlayer")
+    private readonly IMainWindowController _controller;
+    private readonly ISettingsService _settings;
+
+    private CheckButton RepeatCb;
+    private CheckButton AutoPlayCb;
+
+    public MainWindow(IMainWindowController controller, ISettingsService settings) : base("MusicPlayer")
     {
+        _controller = controller;
+        _settings = settings;
+
         // -- Componentes --
 
         // MenuBar
@@ -32,9 +42,9 @@ public class MainWindow : Window
         scrolled.SetSizeRequest(500, -1);
 
         ListStore store = new ListStore(typeof(string), typeof(string), typeof(string));
-        IEnumerable<MusicFile> musicFiles = controller.GetMusicFiles(@"C:\Users\bruno\programacao\gtk#\teste1");
+        IEnumerable<MusicFile> musicFiles = _controller.GetMusicFiles(@"C:\Users\bruno\programacao\gtk#\teste1");
 
-        controller.LoadStore(musicFiles, store);
+        _controller.LoadStore(musicFiles, store);
 
         var treeView = new TreeView(store);
 
@@ -50,11 +60,16 @@ public class MainWindow : Window
 
         // Image
         MusicImage = new Image();
-        controller.UpdateImage(MusicImage);
+        _controller.UpdateImage(MusicImage);
 
         // Buttons
         Button PlayBtn = new Button("Play");
         Button StopBtn = new Button("Stop");
+
+        // checkbox
+
+        RepeatCb = new CheckButton("Repeat");
+        AutoPlayCb = new CheckButton("AutoPlay");
 
         // Layout
         var grid = new Grid();
@@ -71,23 +86,31 @@ public class MainWindow : Window
         buttonBox.PackStart(StopBtn, false, false, 0);
         grid.Attach(buttonBox, 1, 2, 1, 1);
 
+        var checksbox = new Box(Orientation.Vertical, 2);
+        checksbox.PackStart(RepeatCb, false, false, 0);
+        checksbox.PackStart(AutoPlayCb, false, false, 0);
+        grid.Attach(checksbox, 1, 3, 1, 1);
+
         Add(grid);
 
         // -- configs da janela --
         SetPosition(WindowPosition.Center);
         Resize(800, 600);
         Resizable = false;
+
+        LoadSettings();
+
         ShowAll();
 
         //-- eventos --
-        DeleteEvent += controller.CloseWindow;
-        PlayBtn.Clicked += controller.OnPlayClicked;
-        StopBtn.Clicked += controller.OnStopClicked;
+        DeleteEvent += _controller.CloseWindow;
+        PlayBtn.Clicked += _controller.OnPlayClicked;
+        StopBtn.Clicked += _controller.OnStopClicked;
 
         reloadFolder.Activated += (o, s) =>
         {
-            musicFiles = controller.GetMusicFiles();
-            controller.LoadStore(musicFiles, store);
+            musicFiles = _controller.GetMusicFiles();
+            _controller.LoadStore(musicFiles, store);
         };
 
         openFolder.Activated += (o, s) =>
@@ -96,8 +119,8 @@ public class MainWindow : Window
 
             if (string.IsNullOrEmpty(path)) return;
 
-            musicFiles = controller.GetMusicFiles(path);
-            controller.LoadStore(musicFiles, store);
+            musicFiles = _controller.GetMusicFiles(path);
+            _controller.LoadStore(musicFiles, store);
         };
 
         // Altera o arquivo selecionado
@@ -109,17 +132,47 @@ public class MainWindow : Window
                 var ext = (string)treeView.Model.GetValue(iter, 1);
 
 
-                controller.ChangeSelectedMusic(fileName + ext);
-                controller.UpdateImage(MusicImage);
+                _controller.ChangeSelectedMusic(fileName + ext);
+                _controller.UpdateImage(MusicImage);
             }
         };
 
         // Atualiza botão quando musica parar
-        controller.PlaybackStoped += () =>
+        _controller.PlaybackStoped += () =>
         {
             PlayBtn.Label = "Play";
         };
+
+        // Checkboxes
+        RepeatCb.Toggled += OnCheckToggled;
+        AutoPlayCb.Toggled += OnCheckToggled;
     }
 
+    private void OnCheckToggled(object? obj, EventArgs args)
+    {
+        var cb = obj as CheckButton;
+
+        if (cb == RepeatCb)
+        {
+            _settings.SessionSettings.Repeat = cb.Active;
+            if (cb.Active && AutoPlayCb.Active)
+                AutoPlayCb.Active = false;
+        }
+
+        else if (cb == AutoPlayCb)
+        {
+            _settings.SessionSettings.AutoPlay = cb.Active;
+            
+            if (cb.Active && RepeatCb.Active)
+                RepeatCb.Active = false;
+        }
+    }
+
+    private void LoadSettings()
+    {
+        var sessionSettings = _settings.SessionSettings;
+        RepeatCb.Active = sessionSettings.Repeat;
+        AutoPlayCb.Active = sessionSettings.AutoPlay;
+    }
 
 }
