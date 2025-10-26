@@ -1,6 +1,8 @@
+using Gdk;
 using Gtk;
 using MusicPlayer.Interfaces;
 using MusicPlayer.Models;
+using TagLib;
 
 namespace MusicPlayer.Controllers;
 
@@ -11,11 +13,14 @@ public class MainWindowController : IMainWindowController
     private string? SelectedMusicFile { get; set; }
     private bool IsPlaying { get; set; } = false;
     public event System.Action? PlaybackStoped;
+    private string DefaultImage { get; set; }
 
     public MainWindowController(IAudioPlayerService audioPlayer)
     {
         _audioPlayer = audioPlayer;
         _audioPlayer.PlaybackStoped += OnMusicStop;
+
+        DefaultImage = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ui", "Images", "music-note-icon.png");
     }
 
     public void CloseWindow(object obj, DeleteEventArgs args)
@@ -77,7 +82,7 @@ public class MainWindowController : IMainWindowController
 
     public void OnPlayClicked(object? obj, EventArgs args)
     {
-        if (string.IsNullOrEmpty(SelectedMusicFile) || !File.Exists(SelectedMusicFile)) return;
+        if (string.IsNullOrEmpty(SelectedMusicFile) || !System.IO.File.Exists(SelectedMusicFile)) return;
 
         if (obj == null) return;
 
@@ -95,6 +100,38 @@ public class MainWindowController : IMainWindowController
             IsPlaying = false;
             _audioPlayer.PauseMusic();
             button.Label = "Play";
+        }
+    }
+
+    public void UpdateImage(Image image)
+    {
+        if (!System.IO.File.Exists(SelectedMusicFile)) return;
+
+        try
+        {
+            var file = TagLib.File.Create(SelectedMusicFile);
+
+            if (file.Tag.Pictures.Length > 0)
+            {
+                byte[] bin = file.Tag.Pictures[0].Data.Data;
+
+                var loader = new PixbufLoader();
+                loader.Write(bin);
+                loader.Close();
+                Pixbuf pixbuf = loader.Pixbuf;
+
+                image.Pixbuf = pixbuf;
+            }
+
+            else
+            {
+                image.Pixbuf = new Pixbuf(DefaultImage);
+            }
+        }
+
+        catch (CorruptFileException)
+        {            
+            image.Pixbuf = new Pixbuf(DefaultImage);
         }
     }
 

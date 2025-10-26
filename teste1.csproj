@@ -8,10 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Ui\Images\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <PackageReference Include="GtkSharp" Version="3.24.24.95" />
     <PackageReference Include="ManagedBass" Version="4.0.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="TagLibSharp" Version="2.3.0" />
   </ItemGroup>
 
 </Project>

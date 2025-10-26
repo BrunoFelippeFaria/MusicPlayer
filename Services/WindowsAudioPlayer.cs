@@ -1,6 +1,3 @@
-using System.Runtime.InteropServices;
-using System.Text;
-using Gdk;
 using MusicPlayer.Interfaces;
 using NAudio.Wave;
 
@@ -9,7 +6,6 @@ public class WindowsAudioPlayer : IAudioPlayerService
     private WaveOutEvent? outputDevice;
     private AudioFileReader? audioFile;
     public event Action? PlaybackStoped;
-
 
     public void PlayMusic(string file)
     {

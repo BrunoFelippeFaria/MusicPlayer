@@ -11,6 +11,7 @@ public interface IMainWindowController
     public IEnumerable<MusicFile> GetMusicFiles();
     public void LoadStore(IEnumerable<MusicFile> files, ListStore store);
     public void ChangeSelectedMusic(string file);
+    public void UpdateImage(Image image);
     public void OnPlayClicked(object? obj, EventArgs args);
     public void OnStopClicked(object? obj, EventArgs args);
 }

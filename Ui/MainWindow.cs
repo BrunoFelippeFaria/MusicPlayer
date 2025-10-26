@@ -27,6 +27,10 @@ public class MainWindow : Window
         menuBar.Add(fileItem);
 
         // TreeView
+        var scrolled = new ScrolledWindow();
+        scrolled.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+        scrolled.SetSizeRequest(500, -1);
+
         ListStore store = new ListStore(typeof(string), typeof(string), typeof(string));
         IEnumerable<MusicFile> musicFiles = controller.GetMusicFiles(@"C:\Users\bruno\programacao\gtk#\teste1");
 
@@ -42,8 +46,11 @@ public class MainWindow : Window
         treeView.AppendColumn(columnType);
         treeView.AppendColumn(columnSize);
 
+        scrolled.Add(treeView);
+
         // Image
-        MusicImage = new Image("./Ui/Images/music-note-icon.png");
+        MusicImage = new Image();
+        controller.UpdateImage(MusicImage);
 
         // Buttons
         Button PlayBtn = new Button("Play");
@@ -55,7 +62,7 @@ public class MainWindow : Window
         grid.ColumnSpacing = 5;
 
         grid.Attach(menuBar, 0, 0, 2, 1);
-        grid.Attach(treeView, 0, 1, 1, 2);
+        grid.Attach(scrolled, 0, 1, 1, 2);
 
         grid.Attach(MusicImage, 1, 1, 1, 1);
 
@@ -69,6 +76,7 @@ public class MainWindow : Window
         // -- configs da janela --
         SetPosition(WindowPosition.Center);
         Resize(800, 600);
+        Resizable = false;
         ShowAll();
 
         //-- eventos --
@@ -100,7 +108,9 @@ public class MainWindow : Window
                 var fileName = (string)treeView.Model.GetValue(iter, 0);
                 var ext = (string)treeView.Model.GetValue(iter, 1);
 
+
                 controller.ChangeSelectedMusic(fileName + ext);
+                controller.UpdateImage(MusicImage);
             }
         };
 
