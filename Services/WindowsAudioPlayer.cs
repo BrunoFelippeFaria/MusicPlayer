@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using Gdk;
+using MusicPlayer.Interfaces;
 using NAudio.Wave;
 
 public class WindowsAudioPlayer : IAudioPlayerService

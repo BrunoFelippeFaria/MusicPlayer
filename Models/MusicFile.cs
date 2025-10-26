@@ -1,3 +1,5 @@
+namespace MusicPlayer.Models;
+
 public class MusicFile
 {
     public string File { get; set; }
@@ -12,8 +14,8 @@ public class MusicFile
         FileSize = GetFormatedFileSize(file);
         Extension = Path.GetExtension(file);
     }
-    
-    private static string GetFormatedFileSize (string path)
+
+    private static string GetFormatedFileSize(string path)
     {
         var file = new FileInfo(path);
         double size = file.Length;

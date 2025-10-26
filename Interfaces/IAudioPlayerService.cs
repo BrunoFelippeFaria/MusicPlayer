@@ -1,3 +1,5 @@
+namespace MusicPlayer.Interfaces;
+
 public interface IAudioPlayerService
 {
     public void PlayMusic(string file);

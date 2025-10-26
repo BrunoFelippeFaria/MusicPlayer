@@ -1,5 +1,7 @@
 ﻿using Gtk;
 using Microsoft.Extensions.DependencyInjection;
+using MusicPlayer.Helpers;
+using MusicPlayer.Ui;
 
 class Program
 {

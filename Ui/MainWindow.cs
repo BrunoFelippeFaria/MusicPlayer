@@ -1,5 +1,9 @@
-using System.Security.AccessControl;
 using Gtk;
+using MusicPlayer.Helpers;
+using MusicPlayer.Interfaces;
+using MusicPlayer.Models;
+
+namespace MusicPlayer.Ui;
 
 public class MainWindow : Window
 {
@@ -107,5 +111,5 @@ public class MainWindow : Window
         };
     }
 
-    
+
 }

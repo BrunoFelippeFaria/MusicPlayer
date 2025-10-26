@@ -1,5 +1,7 @@
 using Gtk;
 
+namespace MusicPlayer.Helpers;
+
 public static class FileDialogHelper
 {
     public static string? GetDirectory()
@@ -22,7 +24,7 @@ public static class FileDialogHelper
         }
 
         fileChooser.Destroy();
-        
+
         return path;
     }
 }

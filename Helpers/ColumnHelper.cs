@@ -1,5 +1,7 @@
 using Gtk;
 
+namespace MusicPlayer.Helpers;
+
 public static class ColumnHelper
 {
     public static TreeViewColumn CreateTextColumn(string title, int index)

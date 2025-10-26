@@ -1,9 +1,13 @@
 using Gtk;
+using MusicPlayer.Interfaces;
+using MusicPlayer.Models;
+
+namespace MusicPlayer.Controllers;
 
 public class MainWindowController : IMainWindowController
 {
     private readonly IAudioPlayerService _audioPlayer;
-    private string[] SupportedAudioFormats = {".mp3", ".mp4"};
+    private string[] SupportedAudioFormats = { ".mp3", ".mp4" };
     private string? SelectedMusicFile { get; set; }
     private bool IsPlaying { get; set; } = false;
     public event System.Action? PlaybackStoped;
@@ -74,7 +78,7 @@ public class MainWindowController : IMainWindowController
     public void OnPlayClicked(object? obj, EventArgs args)
     {
         if (string.IsNullOrEmpty(SelectedMusicFile) || !File.Exists(SelectedMusicFile)) return;
-    
+
         if (obj == null) return;
 
         Button button = (obj as Button)!;

@@ -1,4 +1,7 @@
 using Gtk;
+using MusicPlayer.Models;
+
+namespace MusicPlayer.Interfaces;
 
 public interface IMainWindowController
 {
