@@ -5,13 +5,25 @@ namespace MusicPlayer.Interfaces;
 
 public interface IMainWindowController
 {
-    public event System.Action? PlaybackStoped;
-    public void CloseWindow(object obj, DeleteEventArgs args);
-    public IEnumerable<MusicFile> GetMusicFiles(string directory);
-    public IEnumerable<MusicFile> GetMusicFiles();
-    public void LoadStore(IEnumerable<MusicFile> files, ListStore store);
+    // Atributos
+    public TimeSpan TotalTime { get; }
+    public TimeSpan CurrentTime { get; set;  }
+    public bool IsPlaying { get; }
+    public string? SelectedMusicFile { get; }
+    public string DefaultImage { get; }
+    public bool HasActiveTrack { get; }
+    public ICollection<MusicFile> MusicFiles { get; }
+    public bool IsSeeking { get; set; }
+
+    // Eventos
+    public event System.Action? TimeUpdated;
+    public event System.Action? PlaybackStopped;
+
+    // Métodos principais
+    public void PlayMusic(string? music);
+    public void StopMusic();
     public void ChangeSelectedMusic(string file);
-    public void UpdateImage(Image image);
-    public void OnPlayClicked(object? obj, EventArgs args);
-    public void OnStopClicked(object? obj, EventArgs args);
+    public byte[]? GetAlbumArt();
+    public void ChangeCurrentDirectory(string path);
+
 }

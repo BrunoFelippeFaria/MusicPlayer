@@ -1,8 +1,5 @@
-using Gdk;
-using Gtk;
 using MusicPlayer.Interfaces;
 using MusicPlayer.Models;
-using TagLib;
 
 namespace MusicPlayer.Controllers;
 
@@ -11,31 +8,57 @@ public class MainWindowController : IMainWindowController
     private readonly IAudioPlayerService _audioPlayer;
     private readonly ISettingsService _settings;
 
-    private string[] SupportedAudioFormats = { ".mp3", ".mp4" };
-    private string? SelectedMusicFile { get; set; }
-    private string? CurrentSong { get; set; }
-    private bool IsPlaying { get; set; } = false;
-    public event System.Action? PlaybackStoped;
-    private string DefaultImage { get; set; }
-    private bool stopClicked;
+    // Campos Privados
+    private readonly string[] _supportedAudioFormats = [".mp3", ".mp4"];
+    private string? _currentSong;
+    private bool _stopClicked;
+    
+    private string? _selectedMusicFile;
+    private bool _isPlaying;
+    private ICollection<MusicFile> _musicFiles = [];
+    private readonly string _defaultImage;
+
+    // Campos publicos
+    public string? SelectedMusicFile => _selectedMusicFile;
+    public bool IsPlaying => _isPlaying;
+    public TimeSpan TotalTime => _audioPlayer.TotalTime;
+    public TimeSpan CurrentTime
+    {
+        get => _audioPlayer.CurrentTime;
+        set => _audioPlayer.CurrentTime = value;
+    } 
+    public bool HasActiveTrack => _audioPlayer.HasActiveTrack;
+    public ICollection<MusicFile> MusicFiles => _musicFiles;
+    public string DefaultImage => _defaultImage;
+    
+    public bool IsSeeking
+    {
+        get => _audioPlayer.IsSeeking;
+        set => _audioPlayer.IsSeeking = value;
+    }
+
+
+    // Eventos
+    public event Action? TimeUpdated;
+    public event Action? PlaybackStopped;
+
+
 
     public MainWindowController(IAudioPlayerService audioPlayer, ISettingsService settings)
     {
         _audioPlayer = audioPlayer;
-        _audioPlayer.PlaybackStoped += OnMusicStop;
+        _audioPlayer.PlaybackStopped += OnMusicStop;
+        _audioPlayer.TimeUpdated += OnTimeUpdated;
 
         _settings = settings;
 
-        DefaultImage = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ui", "Images", "music-note-icon.png");
-        stopClicked = false;
+        _defaultImage = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ui", "Images", "music-note-icon.png");
+        _stopClicked = false;
+
+        _musicFiles = GetMusicFiles().ToList();
     }
 
-    public void CloseWindow(object obj, DeleteEventArgs args)
-    {
-        Application.Quit();
-    }
-
-    public IEnumerable<MusicFile> GetMusicFiles(string directory)
+    private IEnumerable<MusicFile> GetMusicFiles(string directory)
     {
         string[] files = Directory.GetFiles(directory);
 
@@ -45,7 +68,7 @@ public class MainWindowController : IMainWindowController
         {
             string ext = Path.GetExtension(file);
 
-            if (SupportedAudioFormats.Contains(ext))
+            if (_supportedAudioFormats.Contains(ext))
             {
                 musicFiles.Add(new MusicFile(file));
             }
@@ -54,114 +77,99 @@ public class MainWindowController : IMainWindowController
         if (musicFiles.Count > 0)
         {
             MusicFile musicFile = musicFiles.First();
-            SelectedMusicFile = musicFile.File;
+            _selectedMusicFile = musicFile.File;
         }
 
         else
         {
-            SelectedMusicFile = null;
+            _selectedMusicFile = null;
         }
 
         Directory.SetCurrentDirectory(directory);
         return musicFiles;
     }
 
-    public IEnumerable<MusicFile> GetMusicFiles()
+    private IEnumerable<MusicFile> GetMusicFiles()
     {
-        string path = Directory.GetCurrentDirectory();
-        return GetMusicFiles(path);
+        string path = @"C:\Users\bruno\programacao\gtk#\teste1"; // Directory.GetCurrentDirectory();
+        return _musicFiles = GetMusicFiles(path).ToList();
     }
 
-    public void LoadStore(IEnumerable<MusicFile> files, ListStore store)
+    public void ChangeCurrentDirectory(string path)
     {
-        store.Clear();
-
-        foreach (var file in files)
-        {
-            store.AppendValues(file.FileName, file.Extension, file.FileSize);
-        }
+        Directory.SetCurrentDirectory(path);
+        _musicFiles = GetMusicFiles(Directory.GetCurrentDirectory()).ToList();
     }
 
     public void ChangeSelectedMusic(string file)
     {
-        SelectedMusicFile = file;
+        _selectedMusicFile = file;
     }
 
-    public void OnPlayClicked(object? obj, EventArgs args)
+    public void PlayMusic(string? music)
     {
-        PlayMusic(SelectedMusicFile);
-    }
-
-    private void PlayMusic(string? music)
-    {
-        if (string.IsNullOrEmpty(music) || !System.IO.File.Exists(music)) return;
+        if (string.IsNullOrEmpty(music) || !File.Exists(music)) return;
 
         if (!IsPlaying)
         {
-            IsPlaying = true;
+            _isPlaying = true;
             _audioPlayer.PlayMusic(music);
         }
 
         else
         {
-            IsPlaying = false;
+            _isPlaying = false;
             _audioPlayer.PauseMusic();
         }
 
-        CurrentSong = SelectedMusicFile;
+        _currentSong = _selectedMusicFile;
     }
 
-    public void UpdateImage(Image image)
+    public byte[]? GetAlbumArt()
     {
-        if (!System.IO.File.Exists(SelectedMusicFile)) return;
+        if (!File.Exists(_selectedMusicFile))
+            return null;
 
         try
         {
-            var file = TagLib.File.Create(SelectedMusicFile);
-
+            var file = TagLib.File.Create(_selectedMusicFile);
             if (file.Tag.Pictures.Length > 0)
             {
-                byte[] bin = file.Tag.Pictures[0].Data.Data;
-
-                var loader = new PixbufLoader();
-                loader.Write(bin);
-                loader.Close();
-                
-                Pixbuf pixbuf = loader.Pixbuf;
-
-                image.Pixbuf = pixbuf;
-            }
-
-            else
-            {
-                image.Pixbuf = new Pixbuf(DefaultImage);
+                return file.Tag.Pictures[0].Data.Data;
             }
         }
 
-        catch (CorruptFileException)
-        {            
-            image.Pixbuf = new Pixbuf(DefaultImage);
+        catch
+        {
+            Console.WriteLine("Erro ao carregar imagem");
         }
+        
+        return null;
     }
 
-    public void OnStopClicked(object? obj, EventArgs args)
+    public void StopMusic()
     {
-        stopClicked = true;
+        _stopClicked = true;
         _audioPlayer.StopMusic();
+    }
+
+    public void OnTimeUpdated()
+    {
+        TimeUpdated?.Invoke();
     }
 
     private void OnMusicStop()
     {        
-        IsPlaying = false;
+        _isPlaying = false;
 
-        if (!stopClicked && _settings.SessionSettings.Repeat)
+        if (!_stopClicked && _settings.SessionSettings.Repeat)
         {
-            PlayMusic(CurrentSong);
-            IsPlaying = true;
+            PlayMusic(_currentSong);
+            _isPlaying = true;
         }
 
-        stopClicked = false;
+        _stopClicked = false;
 
-        PlaybackStoped?.Invoke();
+        PlaybackStopped?.Invoke();
     }
 }

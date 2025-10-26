@@ -5,8 +5,32 @@ public class WindowsAudioPlayer : IAudioPlayerService
 {
     private WaveOutEvent? outputDevice;
     private AudioFileReader? audioFile;
-    public event Action? PlaybackStoped;
-    public bool _stoping;
+    private bool _stoping;
+    private System.Timers.Timer? _timer;
+
+    public bool HasActiveTrack { get; set; }
+
+    public bool IsSeeking { get; set; }
+    private TimeSpan _currentTime;
+
+    public TimeSpan CurrentTime
+    {
+        get => _currentTime;
+        set
+        {
+            _currentTime = value;
+
+            if (audioFile != null)
+                audioFile.CurrentTime = _currentTime;
+
+            TimeUpdated?.Invoke();
+        }
+    }
+
+    public TimeSpan TotalTime { get; set; }
+
+    public event Action? PlaybackStopped;
+    public event Action? TimeUpdated;
 
     public void PlayMusic(string file)
     {
@@ -20,9 +44,27 @@ public class WindowsAudioPlayer : IAudioPlayerService
         {
             audioFile = new AudioFileReader(file);
             outputDevice.Init(audioFile);
+            TotalTime = audioFile.TotalTime;
+            HasActiveTrack = true;
         }
-        
+
         outputDevice.Play();
+
+        if (_timer == null)
+        {
+            _timer = new System.Timers.Timer(200); // 200ms
+            _timer.Elapsed += (s, e) =>
+            {
+                if (audioFile != null && !IsSeeking)
+                {
+                    _currentTime = audioFile.CurrentTime;
+                    
+                    if (outputDevice.PlaybackState == PlaybackState.Playing)
+                        TimeUpdated?.Invoke();                    
+                }
+            };
+        }
+        _timer.Start();
     }
 
     public void PauseMusic()
@@ -41,8 +83,8 @@ public class WindowsAudioPlayer : IAudioPlayerService
         outputDevice = null;
         audioFile?.Dispose();
         audioFile = null;
-
-        PlaybackStoped?.Invoke();
+        HasActiveTrack = false;
+        PlaybackStopped?.Invoke();
     }
     
     private void OnPlaybackStopped(object? sender, StoppedEventArgs args)
@@ -51,7 +93,8 @@ public class WindowsAudioPlayer : IAudioPlayerService
         {
             StopMusic();
         }
-        
+
+        CurrentTime = TimeSpan.FromSeconds(0);
         _stoping = false;
     }
 }

@@ -1,4 +1,4 @@
-using System.Collections;
+using Gdk;
 using Gtk;
 using MusicPlayer.Helpers;
 using MusicPlayer.Interfaces;
@@ -6,33 +6,52 @@ using MusicPlayer.Models;
 
 namespace MusicPlayer.Ui;
 
-public class MainWindow : Window
+public class MainWindow : Gtk.Window
 {
-    public Image MusicImage { get; set; }
-
     private readonly IMainWindowController _controller;
     private readonly ISettingsService _settings;
 
-    private CheckButton RepeatCb;
-    private CheckButton AutoPlayCb;
+    #region Ui_Componets
+    // Image
+    private Image _musicImage;
+
+    // Scale
+    private Scale _seekBar;
+
+    // Buttons
+    private Button _playBtn;
+    private Button _stopBtn;
+
+    // Checkboxes
+    private CheckButton _repeatCb;
+    private CheckButton _autoPlayCb;
+
+    //treeview
+    private TreeView _treeView;
+    private ListStore _store;
+
+    //menu itens
+    MenuItem _openFolder;
+    MenuItem _reloadFolder;
+
+    #endregion
 
     public MainWindow(IMainWindowController controller, ISettingsService settings) : base("MusicPlayer")
     {
         _controller = controller;
         _settings = settings;
 
-        // -- Componentes --
-
+        #region Load_ui
         // MenuBar
         MenuBar menuBar = new MenuBar();
         Menu fileMenu = new Menu();
         MenuItem fileItem = new MenuItem("_File") { Submenu = fileMenu };
 
-        MenuItem openFolder = new MenuItem("Open Folder");
-        MenuItem reloadFolder = new MenuItem("Reload Folder");
+        _openFolder = new MenuItem("Open Folder");
+        _reloadFolder = new MenuItem("Reload Folder");
 
-        fileMenu.Add(openFolder);
-        fileMenu.Add(reloadFolder);
+        fileMenu.Add(_openFolder);
+        fileMenu.Add(_reloadFolder);
 
         menuBar.Add(fileItem);
 
@@ -41,35 +60,35 @@ public class MainWindow : Window
         scrolled.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
         scrolled.SetSizeRequest(500, -1);
 
-        ListStore store = new ListStore(typeof(string), typeof(string), typeof(string));
-        IEnumerable<MusicFile> musicFiles = _controller.GetMusicFiles(@"C:\Users\bruno\programacao\gtk#\teste1");
+        _store = new ListStore(typeof(string), typeof(string), typeof(string));
+        LoadStore(_store);
 
-        _controller.LoadStore(musicFiles, store);
-
-        var treeView = new TreeView(store);
+        _treeView = new TreeView(_store);
 
         var columnName = ColumnHelper.CreateTextColumn("Name", 0);
         var columnType = ColumnHelper.CreateTextColumn("Type", 1);
         var columnSize = ColumnHelper.CreateTextColumn("Size", 2);
 
-        treeView.AppendColumn(columnName);
-        treeView.AppendColumn(columnType);
-        treeView.AppendColumn(columnSize);
+        _treeView.AppendColumn(columnName);
+        _treeView.AppendColumn(columnType);
+        _treeView.AppendColumn(columnSize);
 
-        scrolled.Add(treeView);
+        scrolled.Add(_treeView);
 
         // Image
-        MusicImage = new Image();
-        _controller.UpdateImage(MusicImage);
+        _musicImage = new Image();
+        UpdateImage();
 
-        // Buttons
-        Button PlayBtn = new Button("Play");
-        Button StopBtn = new Button("Stop");
+        // SeekBar
+        _seekBar = LoadSeekbar();
+
+        // Button
+        _playBtn = new Button("Play");
+        _stopBtn = new Button("Stop");
 
         // checkbox
-
-        RepeatCb = new CheckButton("Repeat");
-        AutoPlayCb = new CheckButton("AutoPlay");
+        _repeatCb = new CheckButton("Repeat");
+        _autoPlayCb = new CheckButton("AutoPlay");
 
         // Layout
         var grid = new Grid();
@@ -79,21 +98,26 @@ public class MainWindow : Window
         grid.Attach(menuBar, 0, 0, 2, 1);
         grid.Attach(scrolled, 0, 1, 1, 2);
 
-        grid.Attach(MusicImage, 1, 1, 1, 1);
+        grid.Attach(_musicImage, 1, 1, 1, 1);
+
+        // Adiciona ao grid acima dos botões
+        grid.Attach(_seekBar, 1, 2, 1, 1);
 
         var buttonBox = new Box(Orientation.Horizontal, 5);
-        buttonBox.PackStart(PlayBtn, false, false, 0);
-        buttonBox.PackStart(StopBtn, false, false, 0);
-        grid.Attach(buttonBox, 1, 2, 1, 1);
+        buttonBox.PackStart(_playBtn, false, false, 0);
+        buttonBox.PackStart(_stopBtn, false, false, 0);
+        grid.Attach(buttonBox, 1, 3, 1, 1);
 
         var checksbox = new Box(Orientation.Vertical, 2);
-        checksbox.PackStart(RepeatCb, false, false, 0);
-        checksbox.PackStart(AutoPlayCb, false, false, 0);
-        grid.Attach(checksbox, 1, 3, 1, 1);
+        checksbox.PackStart(_repeatCb, false, false, 0);
+        checksbox.PackStart(_autoPlayCb, false, false, 0);
+        grid.Attach(checksbox, 1, 4, 1, 1);
 
         Add(grid);
+        #endregion
 
-        // -- configs da janela --
+        #region Window Config
+
         SetPosition(WindowPosition.Center);
         Resize(800, 600);
         Resizable = false;
@@ -101,78 +125,198 @@ public class MainWindow : Window
         LoadSettings();
 
         ShowAll();
+        #endregion
 
+        AttachEvents();
+    }
+
+    public void AttachEvents()
+    {
         //-- eventos --
-        DeleteEvent += _controller.CloseWindow;
-        PlayBtn.Clicked += _controller.OnPlayClicked;
-        StopBtn.Clicked += _controller.OnStopClicked;
+        DeleteEvent += CloseWindow;
+        _playBtn.Clicked += OnPlayClicked;
+        _stopBtn.Clicked += OnStopClicked;
 
-        reloadFolder.Activated += (o, s) =>
+        _controller.TimeUpdated += UpdateSeekBar;
+
+        //seek bar
+        _seekBar.ButtonPressEvent += (o, e) =>
         {
-            musicFiles = _controller.GetMusicFiles();
-            _controller.LoadStore(musicFiles, store);
+            _controller.IsSeeking = false;
         };
 
-        openFolder.Activated += (o, s) =>
+        // Para de buscar quando o usuário solta
+        _seekBar.ButtonReleaseEvent += (o, e) =>
+        {
+            _controller.IsSeeking = true;
+
+            // Atualiza o player para o novo tempo final
+            var seekBar = o as Scale;
+            if (seekBar != null)
+                _controller.CurrentTime = TimeSpan.FromSeconds(seekBar.Value);
+        };
+
+        // Atualiza continuamente enquanto o usuário arrasta
+        _seekBar.ValueChanged += (o, e) =>
+        {
+            if (!_controller.IsSeeking)
+            {
+                var seekBar = o as Scale;
+                if (seekBar != null)
+                    _controller.CurrentTime = TimeSpan.FromSeconds(seekBar.Value);
+            }
+        };
+
+        _reloadFolder.Activated += (o, s) =>
+        {
+            LoadStore(_store);
+        };
+
+        _openFolder.Activated += (o, s) =>
         {
             var path = FileDialogHelper.GetDirectory();
 
             if (string.IsNullOrEmpty(path)) return;
 
-            musicFiles = _controller.GetMusicFiles(path);
-            _controller.LoadStore(musicFiles, store);
+            _controller.ChangeCurrentDirectory(path);
+            LoadStore(_store);
         };
 
         // Altera o arquivo selecionado
-        treeView.Selection.Changed += (obj, args) =>
+        _treeView.Selection.Changed += (obj, args) =>
         {
-            if (treeView.Selection.GetSelected(out TreeIter iter))
+            if (_treeView.Selection.GetSelected(out TreeIter iter))
             {
-                var fileName = (string)treeView.Model.GetValue(iter, 0);
-                var ext = (string)treeView.Model.GetValue(iter, 1);
-
+                var fileName = (string)_treeView.Model.GetValue(iter, 0);
+                var ext = (string)_treeView.Model.GetValue(iter, 1);
 
                 _controller.ChangeSelectedMusic(fileName + ext);
-                _controller.UpdateImage(MusicImage);
+                UpdateImage();
             }
         };
 
         // Atualiza botão quando musica parar
-        _controller.PlaybackStoped += () =>
+        _controller.PlaybackStopped += () => 
         {
-            PlayBtn.Label = "Play";
+            _playBtn.Label = "Play";
         };
 
         // Checkboxes
-        RepeatCb.Toggled += OnCheckToggled;
-        AutoPlayCb.Toggled += OnCheckToggled;
+        _repeatCb.Toggled += OnCheckToggled;
+        _autoPlayCb.Toggled += OnCheckToggled;
+    }
+
+    private Scale LoadSeekbar()
+    {
+        var seekBar = new Scale(
+            Orientation.Horizontal, 
+            new Adjustment(0, 0, 100, 0.2, 1, 0) // pageSize = 0
+        );
+        seekBar.DrawValue = false;
+
+        return seekBar;
+    }
+
+    private void UpdateSeekBar()
+    {
+        if (!_controller.IsSeeking)
+            _seekBar.Value = _controller.CurrentTime.TotalSeconds;
+    }
+
+    private void OnStopClicked(object? obj, EventArgs args)
+    {
+        _controller.StopMusic();
     }
 
     private void OnCheckToggled(object? obj, EventArgs args)
     {
         var cb = obj as CheckButton;
 
-        if (cb == RepeatCb)
+        if (cb == _repeatCb)
         {
             _settings.SessionSettings.Repeat = cb.Active;
-            if (cb.Active && AutoPlayCb.Active)
-                AutoPlayCb.Active = false;
+            if (cb.Active && _autoPlayCb.Active)
+                _autoPlayCb.Active = false;
         }
 
-        else if (cb == AutoPlayCb)
+        else if (cb == _autoPlayCb)
         {
             _settings.SessionSettings.AutoPlay = cb.Active;
-            
-            if (cb.Active && RepeatCb.Active)
-                RepeatCb.Active = false;
+
+            if (cb.Active && _repeatCb.Active)
+                _repeatCb.Active = false;
         }
     }
 
     private void LoadSettings()
     {
         var sessionSettings = _settings.SessionSettings;
-        RepeatCb.Active = sessionSettings.Repeat;
-        AutoPlayCb.Active = sessionSettings.AutoPlay;
+        _repeatCb.Active = sessionSettings.Repeat;
+        _autoPlayCb.Active = sessionSettings.AutoPlay;
+    }
+
+    private void OnPlayClicked(object? obj, EventArgs args)
+    {
+        bool newAudio = false;
+
+        
+        if (!_controller.HasActiveTrack)
+        {
+            _seekBar.Value = 0;
+            newAudio = true;
+        }
+
+        if (_controller.IsPlaying)
+        {
+            _playBtn.Label = "Play";
+        }
+
+        else
+        {
+            _playBtn.Label = "Pause";
+        }
+
+        _controller.PlayMusic(_controller.SelectedMusicFile);
+    
+        if (newAudio)
+        {
+            _seekBar.Adjustment.Upper = _controller.TotalTime.TotalSeconds;
+        }
+    }
+
+    private void LoadStore(ListStore store)
+    {
+        store.Clear();
+
+        var files = _controller.MusicFiles;
+
+        foreach (var file in files)
+        {
+            store.AppendValues(file.FileName, file.Extension, file.FileSize);
+        }
+    }
+
+    public void UpdateImage()
+    {
+        byte[]? artData = _controller.GetAlbumArt();
+
+        if (artData != null)
+        {
+            var loader = new PixbufLoader();
+            loader.Write(artData);
+            loader.Close();
+            _musicImage.Pixbuf = loader.Pixbuf;
+        }
+
+        else
+        {
+            _musicImage.Pixbuf = new Pixbuf(_controller.DefaultImage);
+        }
+    }
+
+    public void CloseWindow(object obj, DeleteEventArgs args)
+    {
+        Application.Quit();
     }
 
 }
